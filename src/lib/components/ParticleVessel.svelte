@@ -345,10 +345,27 @@
     let dragStartX = 0;
     let dragStartRot = 0;
 
+    const raycaster = new THREE.Raycaster();
+    raycaster.params.Points = { threshold: 0.8 };
+    const pointer = new THREE.Vector2();
+
+    const hitTest = (e: PointerEvent): boolean => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      return raycaster.intersectObjects(treeGroup.children, true).length > 0;
+    };
+
+    const canvas = renderer.domElement;
+    canvas.style.pointerEvents = "auto";
+
     const onPointerDown = (e: PointerEvent) => {
+      if (!hitTest(e)) return;
       isDragging = true;
       dragStartX = e.clientX;
       dragStartRot = targetRotY;
+      e.preventDefault();
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -361,7 +378,7 @@
       isDragging = false;
     };
 
-    window.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
 
@@ -398,7 +415,7 @@
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
-      window.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       ro.disconnect();
