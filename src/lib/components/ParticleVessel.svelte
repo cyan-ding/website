@@ -8,17 +8,26 @@
   onMount(() => {
     if (!mountEl) return;
 
+    const isMobile = mountEl.clientWidth < 700;
+
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 200);
-    camera.position.set(-6, 2.4, 22);
-    camera.lookAt(0, 2.4, 0);
+    const fov = isMobile ? 52 : 44;
+    const camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 200);
+
+    if (isMobile) {
+      camera.position.set(0, 4, 22);
+      camera.lookAt(0, 4, 0);
+    } else {
+      camera.position.set(-6, 2.4, 22);
+      camera.lookAt(0, 2.4, 0);
+    }
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !isMobile,
       alpha: true,
-      powerPreference: "high-performance"
+      powerPreference: isMobile ? "low-power" : "high-performance"
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     renderer.setClearColor(0x000000, 0);
     mountEl.appendChild(renderer.domElement);
@@ -27,7 +36,7 @@
     scene.add(treeGroup);
 
     type Vec3 = [number, number, number];
-    const TREE_X = 8;
+    const TREE_X = isMobile ? 2 : 8;
 
     const cylinderGeos: THREE.BufferGeometry[] = [];
     const branchMidpoints: { pos: Vec3; depth: number }[] = [];
@@ -135,7 +144,8 @@
       }
     };
 
-    grow([0, -2.2, 0], [0.02, 1, 0], 1.1, 0.24, 0, 6);
+    const maxDepth = isMobile ? 5 : 6;
+    grow([0, -2.2, 0], [0.02, 1, 0], 1.1, 0.24, 0, maxDepth);
 
     if (cylinderGeos.length > 0) {
       const merged = mergeGeometries(cylinderGeos, false);
@@ -184,7 +194,9 @@
       const distFromCenter = Math.sqrt(dx * dx + dy * dy + dz * dz) / canopyMaxR;
 
       const density = 1.0 - distFromCenter * 0.7;
-      const count = Math.floor((48 + Math.random() * 30) * density);
+      const baseDensity = isMobile ? 24 : 48;
+      const densityRange = isMobile ? 15 : 30;
+      const count = Math.floor((baseDensity + Math.random() * densityRange) * density);
       const spreadScale = 0.6 + distFromCenter * 0.6;
 
       for (let b = 0; b < count; b++) {
@@ -201,7 +213,7 @@
     }
 
     for (const bp of branchMidpoints) {
-      const count = Math.floor(12 + Math.random() * 10);
+      const count = Math.floor(isMobile ? 6 + Math.random() * 5 : 12 + Math.random() * 10);
       for (let b = 0; b < count; b++) {
         const spread = 0.2 + Math.random() * 0.6;
         const theta = Math.random() * Math.PI * 2;
@@ -215,7 +227,7 @@
       }
     }
 
-    const petalCount = 1400;
+    const petalCount = isMobile ? 500 : 1400;
     const totalBlossoms = blossomPositions.length / 3;
     const totalPoints = totalBlossoms + petalCount;
 
@@ -276,10 +288,16 @@
     pointGeo.setAttribute("aPhase", new THREE.BufferAttribute(pointPhase, 1));
     pointGeo.computeBoundingSphere();
 
+    const pointSizeFactor = isMobile ? 160.0 : 220.0;
+
     const pointMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
+      uniforms: {
+        uTime: { value: 0 },
+        uSizeFactor: { value: pointSizeFactor }
+      },
       vertexShader: `
         uniform float uTime;
+        uniform float uSizeFactor;
         attribute float aSize;
         attribute vec3 aColor;
         attribute float aKind;
@@ -310,7 +328,7 @@
           }
 
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          gl_PointSize = aSize * (220.0 / -mv.z);
+          gl_PointSize = aSize * (uSizeFactor / -mv.z);
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -336,7 +354,8 @@
     const pointMesh = new THREE.Points(pointGeo, pointMat);
     treeGroup.add(pointMesh);
 
-    treeGroup.scale.set(3, 3, 3);
+    const treeScale = isMobile ? 2.2 : 3;
+    treeGroup.scale.set(treeScale, treeScale, treeScale);
     treeGroup.position.set(TREE_X, 0, 0);
 
     let targetRotY = 0;
@@ -359,6 +378,7 @@
 
     const canvas = renderer.domElement;
     canvas.style.pointerEvents = "auto";
+    canvas.style.touchAction = "none";
 
     const onPointerDown = (e: PointerEvent) => {
       if (!hitTest(e)) return;
@@ -389,7 +409,23 @@
       if (!mountEl) return;
       const w = mountEl.clientWidth;
       const h = mountEl.clientHeight;
+      const narrow = w < 700;
+
       camera.aspect = w / h;
+      camera.fov = narrow ? 52 : 44;
+
+      if (narrow) {
+        camera.position.set(0, 4, 22);
+        camera.lookAt(0, 4, 0);
+        treeGroup.position.x = 2;
+        treeGroup.scale.setScalar(2.2);
+      } else {
+        camera.position.set(-6, 2.4, 22);
+        camera.lookAt(0, 2.4, 0);
+        treeGroup.position.x = 8;
+        treeGroup.scale.setScalar(3);
+      }
+
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
