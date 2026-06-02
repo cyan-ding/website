@@ -6,6 +6,7 @@
   const navItems = [
     { href: "/", label: "blog" },
     { href: "/quotes", label: "quotes" },
+    { href: "/values", label: "values" },
   ];
 </script>
 
