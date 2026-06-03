@@ -5,7 +5,7 @@
 <main class="values-page">
   <header>
     <h1>Values</h1>
-    <p class="intro">What I hold close to heart.</p>
+    <p class="intro">What I hold closest to heart.</p>
   </header>
 
   <section class="values" aria-label="Core values">
