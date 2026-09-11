@@ -5,23 +5,18 @@ export type Value = {
 
 export const values: Value[] = [
   {
-    title: "Understanding the Universe",
+    title: "Understanding the universe",
     description:
       "My purpose in life; inspired by Elon."
   },
   {
-    title: "Family and Friends",
+    title: "Family and friends",
     description:
       "I would be nothing without my family and friends."
   },
   {
-    title: "Humbleness",
+    title: "Fear no one",
     description:
-      "Free oneself from ego, arrogance, and pride. There is always more to learn."
-  },
-  {
-    title: "Empathy",
-    description:
-      "Open one's minds to the struggles of others."
+      "Every sane man sees through the same eyes of thee."
   },
 ];
