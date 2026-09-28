@@ -171,7 +171,7 @@
       controls.zoomSpeed = 0.7;
 
       const mesh = new SplatMesh({
-        url: "/actathon/wyandotte.ply",
+        url: "/actathon/wyandotte.spz",
         extSplats: true,
         onProgress: (event: ProgressEvent) => {
           if (!event.lengthComputable || event.total === 0) return;
