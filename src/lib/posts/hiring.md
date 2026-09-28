@@ -1,6 +1,6 @@
 ---
 
-title: Who I'd like to hire
+title: Who I'd Like To Hire
 date: 2026-09-27
 summary: A list of desirable personal characteristics. 
 ---
