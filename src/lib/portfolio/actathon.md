@@ -8,6 +8,8 @@ summary: Fine-tuning pi 0.7 to deploy on a real Takeuchi mini excavator.
 
 2 days, fine tune pi 0.7 to deploy on a real Takeuchi mini excavator.
 
+<!-- figure:episode -->
+
 ---
 
 ## Context
@@ -25,10 +27,15 @@ summary: Fine-tuning pi 0.7 to deploy on a real Takeuchi mini excavator.
 
 - We had a .obj file that could be decomposed into tracks, cab, boom, stick and bucket.
 - We hinged the robot's joints in sim using pin centroids found inside the .obj mesh.
+
+<!-- figure:excavator -->
+
 - To actually carry the cone, we built a concave bucket from seven fitted collision plates and a thumb plate.
 - To more accurately bridge sim-to-real, we tried to mimic the real machine: dead band, rate limit, firstorder lag, 0.5 s gate hold.
 - We placed cameras by iterating/triangulating against real frames: two roof-mounted C270s that swing with the house, plus a tripod camera.
 - For collecting episodes in sim, we also needed a photorealistic background for image rendering. We obtain a 3DGS of the parking lot, and combine it with MuJoCo renders.
+
+<!-- figure:splat -->
 
 
 

@@ -1,10 +1,38 @@
 <script lang="ts">
   import type { PageData } from "./$types";
   import { marked } from "marked";
+  import EpisodeFrame from "$lib/components/portfolio/EpisodeFrame.svelte";
+  import ExcavatorFrame from "$lib/components/portfolio/ExcavatorFrame.svelte";
+  import SplatFrame from "$lib/components/portfolio/SplatFrame.svelte";
 
   let { data }: { data: PageData } = $props();
 
-  const html = $derived(marked.parse(data.entry.content) as string);
+  type Segment =
+    | { kind: "md"; html: string }
+    | { kind: "episode" | "excavator" | "splat" };
+
+  function segmentContent(content: string): Segment[] {
+    const parts = content.split(/<!--\s*figure:(episode|excavator|splat)\s*-->/);
+    const segments: Segment[] = [];
+
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) {
+        const kind = parts[i];
+        if (kind === "episode" || kind === "excavator" || kind === "splat") {
+          segments.push({ kind });
+        }
+        continue;
+      }
+
+      const markdown = parts[i].trim();
+      if (!markdown) continue;
+      segments.push({ kind: "md", html: marked.parse(markdown) as string });
+    }
+
+    return segments;
+  }
+
+  const segments = $derived(segmentContent(data.entry.content));
 </script>
 
 <main class="entry-page">
@@ -14,7 +42,17 @@
     <p class="meta">{data.entry.date}</p>
     <h1>{data.entry.title}</h1>
 
-    <div class="prose">{@html html}</div>
+    {#each segments as segment}
+      {#if segment.kind === "md"}
+        <div class="prose">{@html segment.html}</div>
+      {:else if segment.kind === "episode"}
+        <EpisodeFrame />
+      {:else if segment.kind === "excavator"}
+        <ExcavatorFrame />
+      {:else if segment.kind === "splat"}
+        <SplatFrame />
+      {/if}
+    {/each}
   </article>
 </main>
 
