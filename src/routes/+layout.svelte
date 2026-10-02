@@ -54,10 +54,16 @@
     color: #333;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 700px) {
     .site-nav {
-      padding: 1rem 1.2rem;
-      gap: 1.2rem;
+      position: relative;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      padding: 0.9rem 1.2rem 0.15rem;
+      padding-top: max(0.9rem, env(safe-area-inset-top));
+      padding-right: max(1.2rem, env(safe-area-inset-right));
+      padding-left: max(1.2rem, env(safe-area-inset-left));
+      gap: 0.85rem 1.15rem;
     }
   }
 </style>

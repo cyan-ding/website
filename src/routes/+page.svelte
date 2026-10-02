@@ -102,10 +102,38 @@
     color: #595959;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 700px) {
     .home {
-      margin-left: 1rem;
-      padding: 3rem 1.2rem 4rem;
+      max-width: none;
+      margin-left: 0;
+      padding: 0.2rem 1.35rem 3.5rem;
+      padding-left: max(1.35rem, env(safe-area-inset-left));
+      padding-right: max(1.35rem, env(safe-area-inset-right));
+      font-size: 1rem;
+      line-height: 1.75;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      line-height: 1.3;
+    }
+
+    h2 {
+      font-size: 1.12rem;
+    }
+
+    .intro {
+      font-size: 1.02rem;
+    }
+
+    .posts {
+      margin-top: 1.7rem;
+      gap: 1.35rem;
+    }
+
+    .summary,
+    .date {
+      font-size: 0.92rem;
     }
   }
 </style>

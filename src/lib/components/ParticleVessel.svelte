@@ -354,15 +354,90 @@
     const pointMesh = new THREE.Points(pointGeo, pointMat);
     treeGroup.add(pointMesh);
 
-    const treeScale = isMobile ? 2.2 : 3;
-    treeGroup.scale.set(treeScale, treeScale, treeScale);
-    treeGroup.position.set(TREE_X, 0, 0);
+    // Fit the dense canopy. A raw bounding box is pulled wide by a few stray petals,
+    // which left the tree small and off to one side on a narrow screen.
+    const trunkBox = new THREE.Box3();
+    const px: number[] = [];
+    const py: number[] = [];
+    const pz: number[] = [];
+    treeGroup.updateMatrixWorld(true);
+    treeGroup.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.computeBoundingBox();
+        if (obj.geometry.boundingBox) trunkBox.union(obj.geometry.boundingBox);
+      } else if (obj instanceof THREE.Points) {
+        const pos = obj.geometry.getAttribute("position");
+        for (let i = 0; i < pos.count; i++) {
+          px.push(pos.getX(i));
+          py.push(pos.getY(i));
+          pz.push(pos.getZ(i));
+        }
+      }
+    });
+
+    const quantile = (values: number[], q: number) => {
+      const sorted = values.slice().sort((a, b) => a - b);
+      const i = (sorted.length - 1) * q;
+      const i0 = Math.floor(i);
+      const i1 = Math.min(sorted.length - 1, i0 + 1);
+      const t = i - i0;
+      return sorted[i0] * (1 - t) + sorted[i1] * t;
+    };
+
+    const mean = (values: number[]) =>
+      values.reduce((sum, v) => sum + v, 0) / Math.max(values.length, 1);
+
+    const trunkCenter = trunkBox.getCenter(new THREE.Vector3());
+    const meanX = px.length ? mean(px) : trunkCenter.x;
+    const meanZ = pz.length ? mean(pz) : trunkCenter.z;
+    const radii = px.map((x, i) => Math.hypot(x - meanX, pz[i] - meanZ));
+    const canopyRadius = radii.length
+      ? quantile(radii, 0.985)
+      : Math.max(trunkBox.max.x - trunkBox.min.x, trunkBox.max.z - trunkBox.min.z) / 2;
+    const minY = Math.min(trunkBox.min.y, py.length ? quantile(py, 0.005) : trunkBox.min.y);
+    const maxY = Math.max(trunkBox.max.y, py.length ? quantile(py, 0.995) : trunkBox.max.y);
+    const treeSize = new THREE.Vector3(
+      canopyRadius * 2,
+      Math.max(maxY - minY, 0.01),
+      canopyRadius * 2
+    );
+    const treeCenter = new THREE.Vector3(meanX, (minY + maxY) / 2, meanZ);
+
+    if (!isMobile) {
+      treeGroup.scale.setScalar(3);
+      treeGroup.position.set(TREE_X, 0, 0);
+    }
 
     let targetRotY = 0;
     let currentRotY = 0;
     let isDragging = false;
     let dragStartX = 0;
     let dragStartRot = 0;
+    let phoneLayout = isMobile;
+
+    const frameTreeForPhone = (w: number, h: number) => {
+      camera.fov = 44;
+      camera.aspect = w / Math.max(h, 1);
+      camera.updateProjectionMatrix();
+
+      const fovRad = THREE.MathUtils.degToRad(camera.fov);
+      const tan = Math.tan(fovRad / 2);
+      const aspect = camera.aspect;
+      const pad = 1.48;
+      const topClear = treeSize.y * 0.05;
+      const fitH = treeSize.y + topClear;
+      const distV = (fitH * pad) / (2 * tan);
+      const distH = (treeSize.x * pad) / (2 * tan * Math.max(aspect, 0.01));
+      const dist = Math.max(distV, distH, treeSize.z * 0.8);
+
+      treeGroup.scale.setScalar(1);
+      treeGroup.position.set(-treeCenter.x, -treeCenter.y - topClear * 0.5, -treeCenter.z);
+      camera.position.set(0, 0, dist);
+      camera.lookAt(0, 0, 0);
+
+      const treeScreenPx = (fitH * h) / (2 * dist * tan);
+      pointMat.uniforms.uSizeFactor.value = dist * Math.max(8, treeScreenPx / 22);
+    };
 
     const raycaster = new THREE.Raycaster();
     raycaster.params.Points = { threshold: 0.8 };
@@ -381,17 +456,24 @@
     canvas.style.touchAction = "none";
 
     const onPointerDown = (e: PointerEvent) => {
-      if (!hitTest(e)) return;
+      if (!phoneLayout && !hitTest(e)) return;
       isDragging = true;
       dragStartX = e.clientX;
       dragStartRot = targetRotY;
+      if (phoneLayout) {
+        try {
+          canvas.setPointerCapture(e.pointerId);
+        } catch {
+          /* synthetic or already-released pointers */
+        }
+      }
       e.preventDefault();
     };
 
     const onPointerMove = (e: PointerEvent) => {
       if (!isDragging) return;
       const dx = e.clientX - dragStartX;
-      targetRotY = dragStartRot + dx * 0.005;
+      targetRotY = dragStartRot + dx * (phoneLayout ? 0.007 : 0.005);
     };
 
     const onPointerUp = () => {
@@ -401,6 +483,7 @@
     canvas.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
 
     const clock = new THREE.Clock();
     let raf = 0;
@@ -409,24 +492,23 @@
       if (!mountEl) return;
       const w = mountEl.clientWidth;
       const h = mountEl.clientHeight;
-      const narrow = w < 700;
+      if (w < 2 || h < 2) return;
 
-      camera.aspect = w / h;
-      camera.fov = narrow ? 52 : 44;
+      phoneLayout = w < 700;
 
-      if (narrow) {
-        camera.position.set(0, 4, 22);
-        camera.lookAt(0, 4, 0);
-        treeGroup.position.x = 2;
-        treeGroup.scale.setScalar(2.2);
+      if (phoneLayout) {
+        frameTreeForPhone(w, h);
       } else {
+        camera.aspect = w / h;
+        camera.fov = 44;
         camera.position.set(-6, 2.4, 22);
         camera.lookAt(0, 2.4, 0);
-        treeGroup.position.x = 8;
+        treeGroup.position.set(8, 0, 0);
         treeGroup.scale.setScalar(3);
+        pointMat.uniforms.uSizeFactor.value = 220;
+        camera.updateProjectionMatrix();
       }
 
-      camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
 
@@ -454,6 +536,7 @@
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
       ro.disconnect();
       treeGroup.children.forEach((c) => {
         if (c instanceof THREE.Mesh || c instanceof THREE.Points) {
@@ -478,5 +561,16 @@
     inset: 0;
     z-index: 0;
     pointer-events: none;
+  }
+
+  @media (max-width: 700px) {
+    .vessel {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      height: 50vh;
+      height: 50dvh;
+      min-height: 240px;
+    }
   }
 </style>

@@ -69,9 +69,10 @@
     color: #595959;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 700px) {
     .values-page {
-      padding: 3rem 1.2rem 4rem;
+      padding: 1.15rem 1.25rem 3.5rem;
+      font-size: 1rem;
     }
   }
 </style>

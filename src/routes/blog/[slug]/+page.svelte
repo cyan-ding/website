@@ -131,4 +131,11 @@
     border-top: 1px solid rgba(0, 0, 0, 0.08);
     margin: 2rem 0;
   }
+
+  @media (max-width: 700px) {
+    .post-page {
+      padding: 1.15rem 1.25rem 3.5rem;
+      font-size: 1rem;
+    }
+  }
 </style>
