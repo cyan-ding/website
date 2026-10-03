@@ -1,7 +1,22 @@
 <script lang="ts">
+  import { afterNavigate } from "$app/navigation";
   import { page } from "$app/stores";
 
   let { children } = $props();
+
+  afterNavigate((navigation) => {
+    if (navigation.type === "popstate") return;
+    const path = navigation.to?.url.pathname ?? "";
+    if (!path.startsWith("/blog/")) return;
+
+    const toTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    toTop();
+    requestAnimationFrame(toTop);
+  });
 
   const navItems = [
     { href: "/", label: "blog" },
@@ -63,7 +78,12 @@
       padding-top: max(0.9rem, env(safe-area-inset-top));
       padding-right: max(1.2rem, env(safe-area-inset-right));
       padding-left: max(1.2rem, env(safe-area-inset-left));
-      gap: 0.85rem 1.15rem;
+      gap: 0.7rem 1rem;
+    }
+
+    .nav-link {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
     }
   }
 </style>

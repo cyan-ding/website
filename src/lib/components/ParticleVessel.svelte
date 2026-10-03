@@ -25,7 +25,9 @@
     const renderer = new THREE.WebGLRenderer({
       antialias: !isMobile,
       alpha: true,
-      powerPreference: isMobile ? "low-power" : "high-performance"
+      powerPreference: isMobile ? "low-power" : "high-performance",
+      // Safari clears the canvas while scrolling unless the last frame is kept.
+      preserveDrawingBuffer: isMobile
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
@@ -473,7 +475,7 @@
     const onPointerMove = (e: PointerEvent) => {
       if (!isDragging) return;
       const dx = e.clientX - dragStartX;
-      targetRotY = dragStartRot + dx * (phoneLayout ? 0.007 : 0.005);
+      targetRotY = dragStartRot + dx * (phoneLayout ? 0.02 : 0.005);
     };
 
     const onPointerUp = () => {
@@ -488,11 +490,25 @@
     const clock = new THREE.Clock();
     let raf = 0;
 
+    let sizedW = 0;
+    let sizedH = 0;
+
     const resize = () => {
       if (!mountEl) return;
       const w = mountEl.clientWidth;
       const h = mountEl.clientHeight;
       if (w < 2 || h < 2) return;
+
+      // On a phone, scrolling moves the browser toolbar and fires resize even
+      // though the tree's box has not really changed. Rebuilding the canvas then
+      // flashes it. Only a real width change, like turning the phone, should resize.
+      if (w < 700) {
+        if (sizedW > 0 && Math.abs(w - sizedW) < 40) return;
+      } else if (Math.abs(w - sizedW) < 2 && Math.abs(h - sizedH) < 2) {
+        return;
+      }
+      sizedW = w;
+      sizedH = h;
 
       phoneLayout = w < 700;
 
@@ -516,11 +532,31 @@
     ro.observe(mountEl);
     window.addEventListener("resize", resize, { passive: true });
 
+    let paused = false;
+    let scrollIdle = 0;
+
+    const onScroll = () => {
+      if (!phoneLayout) return;
+      paused = true;
+      cancelAnimationFrame(raf);
+      window.clearTimeout(scrollIdle);
+      scrollIdle = window.setTimeout(() => {
+        paused = false;
+        animate();
+      }, 140);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+
     const animate = () => {
+      if (paused) return;
       const t = clock.getElapsedTime();
       pointMat.uniforms.uTime.value = t;
 
-      currentRotY += (targetRotY - currentRotY) * 0.06;
+      if (phoneLayout && isDragging) {
+        currentRotY = targetRotY;
+      } else {
+        currentRotY += (targetRotY - currentRotY) * 0.06;
+      }
       treeGroup.rotation.y = currentRotY;
 
       renderer.render(scene, camera);
@@ -532,6 +568,8 @@
 
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(scrollIdle);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
@@ -569,7 +607,7 @@
       inset: auto;
       width: 100%;
       height: 50vh;
-      height: 50dvh;
+      height: 50svh;
       min-height: 240px;
     }
   }

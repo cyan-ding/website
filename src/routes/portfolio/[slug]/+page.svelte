@@ -212,7 +212,7 @@
   @media (max-width: 700px) {
     .entry-page {
       padding: 1.15rem 1.25rem 3.5rem;
-      font-size: 1rem;
+      font-size: 0.9rem;
     }
   }
 </style>

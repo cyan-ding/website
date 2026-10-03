@@ -109,21 +109,17 @@
       padding: 0.2rem 1.35rem 3.5rem;
       padding-left: max(1.35rem, env(safe-area-inset-left));
       padding-right: max(1.35rem, env(safe-area-inset-right));
-      font-size: 1rem;
-      line-height: 1.75;
+      font-size: 0.9rem;
+      line-height: 1.65;
     }
 
     h1 {
-      font-size: 1.6rem;
+      font-size: 1.32rem;
       line-height: 1.3;
     }
 
     h2 {
-      font-size: 1.12rem;
-    }
-
-    .intro {
-      font-size: 1.02rem;
+      font-size: 1rem;
     }
 
     .posts {
@@ -131,9 +127,8 @@
       gap: 1.35rem;
     }
 
-    .summary,
     .date {
-      font-size: 0.92rem;
+      font-size: 0.75rem;
     }
   }
 </style>
