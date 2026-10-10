@@ -22,6 +22,7 @@
     { href: "/", label: "blog" },
     { href: "/portfolio", label: "portfolio" },
     { href: "/quotes", label: "quotes" },
+    { href: "/readings", label: "readings" },
     { href: "/values", label: "values" },
   ];
 </script>
