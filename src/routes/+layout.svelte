@@ -23,7 +23,8 @@
     { href: "/portfolio", label: "portfolio" },
     { href: "/quotes", label: "quotes" },
     { href: "/readings", label: "readings" },
-    { href: "/values", label: "values" },
+    // temporarily retired — restore by uncommenting and renaming src/routes/_values back to values
+    // { href: "/values", label: "values" },
   ];
 </script>
 
