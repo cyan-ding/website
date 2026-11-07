@@ -179,7 +179,7 @@
   }
 
   .prose :global(figure.portrait video) {
-    width: min(100%, 420px);
+    width: min(100%, 300px);
   }
 
   .prose :global(figure.pair) {
@@ -207,7 +207,7 @@
 
   .prose {
     max-width: 100%;
-    overflow-x: auto;
+    overflow-x: clip;
   }
 
   .prose :global(table) {
