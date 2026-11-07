@@ -164,6 +164,41 @@
     margin: 1rem 0;
   }
 
+  .prose :global(figure) {
+    margin: 0.4rem 0 1.5rem;
+  }
+
+  .prose :global(figure img),
+  .prose :global(figure video) {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border-radius: 4px;
+    background: #1e1d1b;
+  }
+
+  .prose :global(figure.portrait video) {
+    width: min(100%, 420px);
+  }
+
+  .prose :global(figure.pair) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem 0.7rem;
+  }
+
+  .prose :global(figure.pair figcaption) {
+    grid-column: 1 / -1;
+  }
+
+  .prose :global(figcaption) {
+    margin: 0.45rem 0 0;
+    color: #8a8a8a;
+    font-size: 0.76rem;
+    line-height: 1.5;
+  }
+
   .prose :global(hr) {
     border: none;
     border-top: 1px solid rgba(0, 0, 0, 0.08);
