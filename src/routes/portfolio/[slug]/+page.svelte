@@ -4,8 +4,19 @@
   import EpisodeFrame from "$lib/components/portfolio/EpisodeFrame.svelte";
   import ExcavatorFrame from "$lib/components/portfolio/ExcavatorFrame.svelte";
   import SplatFrame from "$lib/components/portfolio/SplatFrame.svelte";
+  import { dev } from "$app/environment";
+  import { onMount } from "svelte";
 
   let { data }: { data: PageData } = $props();
+
+  // Dev-only editor: dynamically imported only under `vite dev`, so the
+  // editor component is not part of the production page at all (and its
+  // backing /api/content endpoint 404s in production).
+  type EditorComponent = typeof import("$lib/components/ContentEditor.svelte").default;
+  let Editor = $state<EditorComponent | null>(null);
+  onMount(async () => {
+    if (dev) Editor = (await import("$lib/components/ContentEditor.svelte")).default;
+  });
 
   type Segment =
     | { kind: "md"; html: string }
@@ -35,9 +46,7 @@
   const segments = $derived(segmentContent(data.entry.content));
 </script>
 
-<main class="entry-page">
-  <a class="back-link" href="/portfolio">&larr; portfolio</a>
-
+{#snippet article()}
   <article class="entry">
     <p class="meta">{data.entry.date}</p>
     <h1>{data.entry.title}</h1>
@@ -54,6 +63,25 @@
       {/if}
     {/each}
   </article>
+{/snippet}
+
+<main class="entry-page">
+  <a class="back-link" href="/portfolio">&larr; portfolio</a>
+
+  {#if Editor}
+    <Editor
+      kind="portfolio"
+      slug={data.entry.slug}
+      title={data.entry.title}
+      date={data.entry.date}
+      summary={data.entry.summary}
+      content={data.entry.content}
+    >
+      {@render article()}
+    </Editor>
+  {:else}
+    {@render article()}
+  {/if}
 </main>
 
 <style>

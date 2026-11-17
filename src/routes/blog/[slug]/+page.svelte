@@ -1,21 +1,49 @@
 <script lang="ts">
   import type { PageData } from "./$types";
   import { marked } from "marked";
+  import { dev } from "$app/environment";
+  import { onMount } from "svelte";
 
   let { data }: { data: PageData } = $props();
 
   const html = $derived(marked.parse(data.post.content) as string);
+
+  // Dev-only editor: dynamically imported only under `vite dev`, so the
+  // editor component is not part of the production page at all (and its
+  // backing /api/content endpoint 404s in production).
+  type EditorComponent = typeof import("$lib/components/ContentEditor.svelte").default;
+  let Editor = $state<EditorComponent | null>(null);
+  onMount(async () => {
+    if (dev) Editor = (await import("$lib/components/ContentEditor.svelte")).default;
+  });
 </script>
 
-<main class="post-page">
-  <a class="back-link" href="/">&larr; home</a>
-
+{#snippet article()}
   <article class="post">
     <p class="meta">{data.post.date}</p>
     <h1>{data.post.title}</h1>
 
     <div class="prose">{@html html}</div>
   </article>
+{/snippet}
+
+<main class="post-page">
+  <a class="back-link" href="/">&larr; home</a>
+
+  {#if Editor}
+    <Editor
+      kind="blog"
+      slug={data.post.slug}
+      title={data.post.title}
+      date={data.post.date}
+      summary={data.post.summary}
+      content={data.post.content}
+    >
+      {@render article()}
+    </Editor>
+  {:else}
+    {@render article()}
+  {/if}
 </main>
 
 <style>
