@@ -62,7 +62,11 @@ function serializeList(list: HTMLElement, depth: number): string {
     [...clone.children]
       .filter((c) => c.tagName === "UL" || c.tagName === "OL")
       .forEach((c) => c.remove());
-    lines.push(`${pad}${ordered ? `${start + i}.` : "-"} ${inlineText(clone)}`);
+    const text = inlineText(clone);
+    // Empty items are usually the leftover of exiting a list with Enter —
+    // don't write them back as stray "- " bullets.
+    if (!text && !nested.length) return;
+    lines.push(`${pad}${ordered ? `${start + i}.` : "-"} ${text}`);
     nested.forEach((n) => lines.push(serializeList(n as HTMLElement, depth + 1)));
   });
   return lines.join("\n");

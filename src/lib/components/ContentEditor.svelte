@@ -50,8 +50,8 @@
   // source back; only edited blocks are re-serialized from the DOM.
   let baseline = new Map<string, { html: string; raw: string | null }>();
 
-  function splitSource() {
-    const parts = props.content.split(/<!--\s*figure:(episode|excavator|splat)\s*-->/);
+  function splitSource(content: string = props.content) {
+    const parts = content.split(/<!--\s*figure:(episode|excavator|splat)\s*-->/);
     const mdParts: string[] = [];
     const figures: string[] = [];
     parts.forEach((p, i) => (i % 2 === 1 ? figures.push(p) : mdParts.push(p)));
@@ -74,16 +74,10 @@
   const titleEl = () => rootEl?.querySelector<HTMLElement>("article h1") ?? null;
   const dateEl = () => rootEl?.querySelector<HTMLElement>("article .meta") ?? null;
 
-  function editableTarget(block: HTMLElement): HTMLElement | null {
-    if (block.tagName === "FIGURE") return block.querySelector<HTMLElement>("figcaption");
-    if (block.tagName === "HR") return null;
-    return block;
-  }
-
-  function setupEditable() {
+  function setupEditable(sourceContent: string = props.content) {
     if (!rootEl) return;
     baseline = new Map();
-    const { mdParts } = splitSource();
+    const { mdParts } = splitSource(sourceContent);
     const nonEmptyParts = mdParts.filter((p) => p.trim());
 
     const h1 = titleEl();
@@ -102,19 +96,21 @@
       meta.setAttribute("title", "Date — YYYY-MM-DD");
     }
 
+    // ONE editable region per prose segment — not one per block. With
+    // per-block islands, Enter at a block boundary (e.g. in a list) made
+    // the browser create elements outside the island, which then saved
+    // as stray sections/bullets. Inside a single region, Enter, splits
+    // and list exits all stay in the flow and serialize correctly.
     proseSegments().forEach((seg, si) => {
+      seg.dataset.inlineId = `seg:${si}`;
+      seg.setAttribute("contenteditable", "true");
+      seg.setAttribute("spellcheck", "false");
       const blocks = [...seg.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
       const raws = alignedRaws(nonEmptyParts[si] ?? "", blocks.length);
       blocks.forEach((block, bi) => {
         const id = `${si}:${bi}`;
         block.dataset.inlineId = id;
         baseline.set(id, { html: block.innerHTML, raw: raws[bi] ?? null });
-        const target = editableTarget(block);
-        if (target) {
-          target.dataset.inlineId = id;
-          target.setAttribute("contenteditable", "true");
-          target.setAttribute("spellcheck", "false");
-        }
       });
     });
   }
@@ -158,8 +154,15 @@
 
   const collectJson = () => JSON.stringify(collect());
 
+  let closing = false;
+
   function refresh() {
-    if (editing) currentJson = collectJson();
+    if (!editing) return;
+    currentJson = collectJson();
+    // Nothing is written to disk until Done, but keep the unsaved draft in
+    // sessionStorage so an accidental reload doesn't lose it. (Not while
+    // Done is saving — that would reopen the editor on the hot-reload.)
+    if (!closing) persistSession(captureFocus());
   }
 
   // ---- focus capture / restore (survives the HMR remount after a save) ----
@@ -206,7 +209,10 @@
 
   function persistSession(focus: Focus | null) {
     try {
-      sessionStorage.setItem(storeKey(), JSON.stringify({ open: true, focus }));
+      sessionStorage.setItem(
+        storeKey(),
+        JSON.stringify({ open: true, focus, draft: currentJson || undefined })
+      );
     } catch { /* ignore */ }
   }
 
@@ -218,27 +224,48 @@
     } catch { /* ignore */ }
   });
 
+  /** Re-render the page from an unsaved draft (after an accidental reload). */
+  function applyDraft(draft: { title: string; date: string; summary: string; content: string }) {
+    if (titleEl()) titleEl()!.textContent = draft.title;
+    if (dateEl()) dateEl()!.textContent = draft.date;
+    fDate = draft.date;
+    fSummary = draft.summary;
+    const { mdParts } = splitSource(draft.content);
+    const nonEmptyParts = mdParts.filter((p) => p.trim());
+    proseSegments().forEach((seg, si) => {
+      seg.innerHTML = marked.parse(nonEmptyParts[si] ?? "") as string;
+    });
+    setupEditable(draft.content);
+  }
+
   async function startEdit(restore = false) {
     loading = true;
     errorMsg = "";
     let focus: Focus | null = null;
+    let draft: ReturnType<typeof collect> | null = null;
+    let diskJson = "";
     try {
       const stored = restore ? JSON.parse(sessionStorage.getItem(storeKey()) ?? "null") : null;
       focus = stored?.focus ?? null;
+      if (stored?.draft) draft = JSON.parse(stored.draft);
       // Fresh frontmatter from disk (title is read from the rendered <h1>).
       const res = await fetch(`/api/content/${props.kind}/${props.slug}`);
       if (res.ok) {
         const data = await res.json();
         fDate = data.date;
         fSummary = data.summary;
+        diskJson = JSON.stringify({ title: data.title, date: data.date, summary: data.summary, content: data.content });
       }
     } catch { /* fall back to rendered values */ }
     editing = true;
     loading = false;
     await tick();
     setupEditable();
+    savedJson = diskJson || collectJson();
+    if (draft && JSON.stringify(draft) !== savedJson) {
+      applyDraft(draft);
+    }
     currentJson = collectJson();
-    savedJson = currentJson;
     status = "idle";
     persistSession(focus);
     if (restore && focus) restoreFocus(focus);
@@ -252,7 +279,6 @@
       errorMsg = "date must be YYYY-MM-DD";
       return false;
     }
-    const focus = captureFocus();
     const sent = currentJson;
     status = "saving";
     errorMsg = "";
@@ -266,7 +292,6 @@
       savedJson = sent;
       savedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       status = "saved";
-      persistSession(focus);
       return true;
     } catch (e) {
       status = "error";
@@ -275,28 +300,145 @@
     }
   }
 
-  // Autosave shortly after you stop typing. (Typing itself is never
-  // interrupted: the debounce only fires once input pauses, and after the
-  // save's hot-reload the editor reopens at your cursor — see onMount.)
-  $effect(() => {
-    if (!editing || !dirty || status === "saving") return;
-    const t = setTimeout(() => void save(), 1200);
-    return () => clearTimeout(t);
-  });
-
+  // No autosave: nothing is written to disk (so nothing hot-reloads) until
+  // Done is clicked. Unsaved work lives in the page + the sessionStorage
+  // draft, and beforeunload warns if you try to leave with unsaved changes.
   async function done() {
-    if (dirty && !(await save())) return;
+    // Close the session *before* saving, so the save's hot-reload doesn't
+    // reopen the editor on the refreshed page.
+    closing = true;
     try { sessionStorage.removeItem(storeKey()); } catch { /* ignore */ }
+    if (dirty && !(await save())) {
+      closing = false;
+      persistSession(captureFocus());
+      return;
+    }
     teardownEditable();
     editing = false;
     status = "idle";
   }
 
-  function onKeydown(e: KeyboardEvent) {
-    if (editing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+  /** Title and date are single-line: Enter blurs instead of splitting them. */
+  function onRootKeydown(e: KeyboardEvent) {
+    if (!editing || e.key !== "Enter" || e.shiftKey) return;
+    const t = e.target as HTMLElement;
+    const singleLine = t.closest("h1, .meta");
+    if (singleLine) {
       e.preventDefault();
-      void save();
+      (singleLine as HTMLElement).blur();
+      return;
     }
+    if (t.closest(".prose")) {
+      e.preventDefault();
+      handleEnter();
+    }
+  }
+
+  function placeCaretAtStart(el: HTMLElement) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }
+
+  /**
+   * Deterministic Enter handling. Left to the browser, Enter at a block or
+   * list-item boundary creates elements in unpredictable places (e.g. an
+   * empty <li> at the top of a list, or a block outside the editable flow).
+   * Instead: split the current list item / paragraph / heading at the
+   * caret, move the after-caret content into the new block, and put the
+   * caret at its start. Enter on an empty list item exits the list.
+   */
+  function handleEnter() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !sel.anchorNode) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) range.deleteContents();
+    const anchorEl =
+      sel.anchorNode instanceof HTMLElement ? sel.anchorNode : sel.anchorNode.parentElement;
+    if (!anchorEl) return;
+
+    if (anchorEl.closest("pre")) {
+      document.execCommand("insertText", false, "\n");
+      refresh();
+      return;
+    }
+    if (anchorEl.closest("td, th")) {
+      document.execCommand("insertLineBreak");
+      refresh();
+      return;
+    }
+
+    const afterFrag = (container: Node) => {
+      const after = document.createRange();
+      after.setStart(sel.anchorNode!, sel.anchorOffset);
+      after.setEnd(container, container.childNodes.length);
+      return after.extractContents();
+    };
+
+    const li = anchorEl.closest("li") as HTMLElement | null;
+    if (li) {
+      const list = li.parentElement as HTMLElement;
+      const line = (anchorEl.closest("p") && li.contains(anchorEl.closest("p"))
+        ? anchorEl.closest("p")
+        : li) as HTMLElement;
+      const hasNested = !!li.querySelector("ul, ol");
+      if (!li.textContent?.trim() && !hasNested) {
+        // Exit the list at this point: items before stay in the list, the
+        // empty item becomes a paragraph, and any items after continue in
+        // a new list below it (rather than the paragraph jumping to the
+        // end of the whole list).
+        const items = [...list.children] as HTMLElement[];
+        const following = items.slice(items.indexOf(li) + 1);
+        const p = document.createElement("p");
+        p.innerHTML = "<br>";
+        li.remove();
+        list.after(p);
+        if (following.length) {
+          const rest = document.createElement(list.tagName);
+          following.forEach((item) => rest.appendChild(item));
+          p.after(rest);
+        }
+        if (!list.children.length) list.remove();
+        placeCaretAtStart(p);
+      } else {
+        const newLi = document.createElement("li");
+        const frag = afterFrag(line);
+        if (line.tagName === "P") {
+          const p = document.createElement("p");
+          p.appendChild(frag);
+          newLi.appendChild(p);
+        } else {
+          newLi.appendChild(frag);
+        }
+        if (!newLi.textContent) newLi.innerHTML = line.tagName === "P" ? "<p><br></p>" : "<br>";
+        list.insertBefore(newLi, li.nextSibling);
+        placeCaretAtStart(newLi);
+      }
+      refresh();
+      return;
+    }
+
+    const block = anchorEl.closest("p, h2, h3, h4, h5, h6") as HTMLElement | null;
+    if (block) {
+      // Headings continue as body text; other blocks continue as themselves.
+      const newBlock = document.createElement("p");
+      newBlock.appendChild(afterFrag(block));
+      if (!newBlock.textContent) newBlock.innerHTML = "<br>";
+      block.after(newBlock);
+      placeCaretAtStart(newBlock);
+      refresh();
+      return;
+    }
+
+    // Caret is between blocks: insert a fresh paragraph right there.
+    const p = document.createElement("p");
+    p.innerHTML = "<br>";
+    range.insertNode(p);
+    placeCaretAtStart(p);
+    refresh();
   }
 
   function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -315,7 +457,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} onbeforeunload={onBeforeUnload} />
+<svelte:window onbeforeunload={onBeforeUnload} />
 
 {#if dev}
   <div
@@ -323,6 +465,7 @@
     class:editing
     bind:this={rootEl}
     oninput={refresh}
+    onkeydown={onRootKeydown}
     onclickcapture={onClickCapture}
     onpaste={onPaste}
     role="presentation"
@@ -340,11 +483,10 @@
         <span class="status" class:error={status === "error"}>
           {#if status === "saving"}saving…
           {:else if status === "error"}save failed{errorMsg ? `: ${errorMsg}` : ""}
-          {:else if dirty}unsaved — autosaves in a moment
+          {:else if dirty}unsaved changes — click done to save
           {:else if status === "saved"}saved {savedAt}
           {:else}click any text and type{/if}
         </span>
-        <button type="button" class="pill-btn" onclick={() => void save()} disabled={!dirty || status === "saving"}>save</button>
         <button type="button" class="pill-btn done-btn" onclick={() => void done()}>done</button>
       </div>
     {/if}
@@ -393,22 +535,29 @@
 
   .done-btn { background: #202020 !important; color: #faf8f4 !important; border-color: #202020 !important; }
 
-  /* Editable regions: subtle affordance, no layout change. */
+  /* Editable regions: subtle affordance, no layout change. The prose
+     segment is the editable element; outline the block you're in, not
+     the whole segment. */
   .inline-root.editing :global([contenteditable="true"]) {
     cursor: text;
-    border-radius: 3px;
-    outline: 1px dashed transparent;
-    outline-offset: 3px;
-    transition: outline-color 120ms ease, background 120ms ease;
+    outline: none;
   }
 
-  .inline-root.editing :global([contenteditable="true"]:hover) {
-    outline-color: rgba(200, 140, 0, 0.45);
+  .inline-root.editing :global([data-inline-id="title"]:hover),
+  .inline-root.editing :global([data-inline-id="date"]:hover),
+  .inline-root.editing :global(.prose > *:hover) {
+    outline: 1px dashed rgba(200, 140, 0, 0.45);
+    outline-offset: 3px;
+    border-radius: 3px;
     background: rgba(255, 180, 0, 0.05);
   }
 
-  .inline-root.editing :global([contenteditable="true"]:focus) {
+  .inline-root.editing :global([data-inline-id="title"]:focus),
+  .inline-root.editing :global([data-inline-id="date"]:focus),
+  .inline-root.editing :global(.prose > *:focus-within) {
     outline: 1px solid rgba(200, 140, 0, 0.8);
+    outline-offset: 3px;
+    border-radius: 3px;
     background: rgba(255, 180, 0, 0.06);
   }
 
