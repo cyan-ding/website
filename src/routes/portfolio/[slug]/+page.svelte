@@ -142,6 +142,18 @@
     margin: 1.6rem 0 0.5rem;
   }
 
+  .prose :global(strong),
+  .prose :global(b) {
+    font-weight: 700;
+    font-synthesis: weight;
+  }
+
+  .prose :global(em),
+  .prose :global(i) {
+    font-style: oblique 14deg;
+    font-synthesis: style;
+  }
+
   .prose :global(a) {
     color: #555;
     text-decoration: underline;
