@@ -1,7 +1,7 @@
 ---
 title: Ultrafast Local Browser Agent
 date: 2026-11-17
-summary: A browser agent that runs on a laptop and beats browser-use at half the time.
+summary: A fast browser agent that runs on a Macbook.
 ---
 
 **Personal project; 2025-26**
