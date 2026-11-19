@@ -62,6 +62,11 @@ Per step, Bro reads ~2,000 tokens and writes ~41, against ~7,300 and ~178 for br
 
 A 4-bit MoE model uses ~21 GB on a 36 GB machine, and wouldn't allow users to do any other work simultaneously. I use a 2-bit build (12 GB) that streams cold experts from SSD at no accuracy loss on tasks.
 
+<figure>
+<video controls playsinline preload="metadata" src="/bro/works-while-you-work.mp4">Homework in the foreground while Bro finishes 10 tasks in headless Chrome.</video>
+<figcaption>Homework in the foreground, Bro working through 10 everyday tasks in invisible Chrome. All 10 done in 4:08.</figcaption>
+</figure>
+
 ---
 
 ## What failed or wasn't tried
