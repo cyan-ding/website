@@ -53,9 +53,10 @@ Per step, Bro reads ~2,000 tokens and writes ~41, against ~7,300 and ~178 for br
 
 - One-line actions: `click 12`, `type 7 "lasagna"`, `scroll down`, `done "..."`, up to three per turn. No JSON, code, or reasoning tokens.
 - Fast page structure view-capture: One JavaScript pass collects the visible text in reading order and the interactive elements with stable ids; new elements are starred.
-- A feedback loop that saves steps: Every action is checked for its effect. Elements that do nothing twice disappear; two stalled steps trigger a replan, four return to the start page.
+- A feedback loop that saves steps: Every action is checked for its effect. Elements that do nothing twice disappear, two stalled steps trigger a replan, and four return to the start page.
 - Event-based settling: Wait for the DOM and network to go quiet, usually under 100 ms, instead of fixed sleep.
-- Browser plumbing: One reused Chrome tab, ads and trackers blocked, clicks on overlays retried.
+- Browser plumbing: One reused Chrome tab, ads and trackers blocked, and clicks on overlays retried.
+- Passing the model a screenshot at the end to verify completion, and after two steps of being stuck on an unchanged page. I opted not to pass screenshots per step because it would add ~3600 tokens per image, which would slow down the model.
 
 ## Works while you work
 
@@ -66,14 +67,9 @@ A 4-bit MoE model uses ~21 GB on a 36 GB machine, and wouldn't allow users to do
 ## What failed
 
 - Complimenting Bro with system 1 models such as OpenJev and Laya, picking actions from a menu without calling the planner failed due to lack of accuracy.
-- Passing the model a screenshot before it answers at the end failed--about 7 s per check, with no gain in pass rate. I opted not to pass screenshots per step because it would add ~3600 tokens per image, which would slow down the model.
 
----
 
-## What's next
 
-- Post training local Qwen on daily tasks/sites not in benchmarks could raise the performance substantially.
-- Test giving Bro a tool to request a screenshot for the next step; browser-use implements this.
 
 ---
 
