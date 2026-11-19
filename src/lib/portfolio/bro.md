@@ -64,9 +64,11 @@ A 4-bit MoE model uses ~21 GB on a 36 GB machine, and wouldn't allow users to do
 
 ---
 
-## What failed
+## What failed or wasn't tried
 
 - Complimenting Bro with system 1 models such as OpenJev and Laya, picking actions from a menu without calling the planner failed due to lack of accuracy.
+- Bro was only evaluated on one benchmark, Emergence Webvoyager, and not other ones such as Mind2Web, WebArena, or browser-use's own BU Bench. 
+- Some websites like Cambridge Dictionary and Cloudfare consistently blocked Bro, and it is unclear why. 
 
 
 
