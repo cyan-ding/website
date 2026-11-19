@@ -30,12 +30,12 @@ Bro, a fast, browser agent that comfortably runs locally on a Macbook.
 
 Both agents ran Qwen3.6-35B-A3B (2-bit, served by [Splash](https://github.com/incoai/splash), the fastest Qwen-specific Apple engine, under a 12 GB cap) on an M4 Max with 36 GB, in headless Chrome, with 25 steps and 240s per task, scored by the same LLM judge.
 
-| | Bro | browser-use 1.0.3 |
-|---|---|---|
-| tasks solved | **70 / 150** | 53 / 150 |
-| median time per task | **43.7 s** | 113.0 s |
-| solved within 60 s | **53** | 7 |
-| wall clock, all 150 tasks | **2.0 h** | 4.9 h |
+| | solved | median per task | median on a solved task | solved within 30 / 60 / 120 s | all 150 tasks |
+|---|---|---|---|---|---|
+| **Bro, with screenshot checks** | **74 / 150** | 46.3 s | **28.5 s** | **38 / 58 / 73** | **2.0 h** |
+| Bro, text only | 70 / 150 | **43.7 s** | 33.9 s | 30 / 53 / 70 | **2.0 h** |
+| browser-use 1.0.3, thinking on | 53 / 150 | 113.0 s | 111.7 s | 2 / 7 / 31 | 4.9 h |
+| browser-use 1.0.3, thinking off | 48 / 150 | 99.6 s | 96.2 s | 1 / 5 / 38 | 4.5 h |
 
 - On the 30 tasks both solved, browser-use took a median 3.3x as long.
 - On all 535 Emergence WebVoyager tasks, fully local, Bro solves 242 (45.2%) at a median 45.6 s per task. The frontier agent (OpenAI's Operator) scores 69% at a median 93s per task.
